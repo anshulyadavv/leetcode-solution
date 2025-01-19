@@ -78,7 +78,7 @@ Contributions are welcome! If you have a better solution, found a bug, or have s
 ---
 
 ## **Contact**
-Feel free to reach out for collaboration or suggestions! Connect with me on [LinkedIn](https://www.linkedin.com/in/yourprofile) or email me at yourname@example.com.
+Feel free to reach out for collaboration or suggestions! Connect with me on [LinkedIn](https://www.linkedin.com/in/anshulyadavv) or email me at anshulyadav876@gmail.com.
 
 ---
 
