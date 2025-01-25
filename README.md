@@ -48,7 +48,7 @@ Track the progress of solved problems:
 ## **How to Use**
 1. Clone the repository:
    ```bash
-   git clone https://github.com/anshulyadavv/dailyleetcode.git
+   git clone https://github.com/anshulyadavv/leetcode-solution.git
    ```
 2. Navigate to the desired category and review the solution file.
 3. Run the solution with the provided test cases or add your own.
