@@ -3,7 +3,6 @@ import path from "path";
 import { parse } from "csv-parse/sync";
 
 const COMPANY_DATA_DIR = path.resolve(__dirname, "../company_questions");
-const ROOT_COMPANY_DATA_DIR = path.resolve(__dirname, "../../companies_questions");
 const SCRAPED_DATA_DIR = path.resolve(__dirname, "../../external-data-source/data/problems");
 const OUTPUT_DIR = path.resolve(__dirname, "../public/data");
 
@@ -74,73 +73,52 @@ async function main() {
   const questionsMap = new Map<string, Question>();
 
   // --- Phase 1: Local Data Ingestion (Source of Truth for Frequency) ---
-  try {
-    let effectiveCompanyDir = COMPANY_DATA_DIR;
-    const stats = await fs.stat(COMPANY_DATA_DIR).catch(() => null);
-    
-    if (!stats || !stats.isDirectory()) {
-      const rootStats = await fs.stat(ROOT_COMPANY_DATA_DIR).catch(() => null);
-      if (rootStats && rootStats.isDirectory()) {
-        effectiveCompanyDir = ROOT_COMPANY_DATA_DIR;
-        console.log(`ℹ️ Local company_questions missing, using root companies_questions instead.`);
-      } else {
-        effectiveCompanyDir = null;
-      }
-    }
+  const localCompanies = await fs.readdir(COMPANY_DATA_DIR);
+  console.log(`🔍 Processing ${localCompanies.length} local firm folders...`);
 
-    if (effectiveCompanyDir) {
-      const localCompanies = await fs.readdir(effectiveCompanyDir);
-      console.log(`🔍 Processing ${localCompanies.length} local firm folders...`);
+  for (const company of localCompanies) {
+    const companyPath = path.join(COMPANY_DATA_DIR, company);
+    const stats = await fs.stat(companyPath);
+    if (!stats.isDirectory()) continue;
 
-      for (const company of localCompanies) {
-        const companyPath = path.join(effectiveCompanyDir, company);
-        const stats = await fs.stat(companyPath);
-        if (!stats.isDirectory()) continue;
+    const timeframeFiles = await fs.readdir(companyPath);
+    for (const file of timeframeFiles) {
+      if (!file.endsWith(".csv")) continue;
 
-        const timeframeFiles = await fs.readdir(companyPath);
-        for (const file of timeframeFiles) {
-          if (!file.endsWith(".csv")) continue;
+      const timeframe = file.replace(".csv", "");
+      const content = await fs.readFile(path.join(companyPath, file), "utf8");
+      const records = parse(content, { columns: true, skip_empty_lines: true }) as RawCsvRecord[];
 
-          const timeframe = file.replace(".csv", "");
-          const content = await fs.readFile(path.join(companyPath, file), "utf8");
-          const records = parse(content, { columns: true, skip_empty_lines: true }) as RawCsvRecord[];
+      for (const record of records) {
+        const slug = deriveSlug(record.URL);
+        if (!slug) continue;
+        const freq = parseFloat(record["Frequency %"]) || 0;
 
-          for (const record of records) {
-            const slug = deriveSlug(record.URL);
-            if (!slug) continue;
-            const freq = parseFloat(record["Frequency %"]) || 0;
-
-            if (!questionsMap.has(slug)) {
-              questionsMap.set(slug, {
-                id: record.ID,
-                title: record.Title,
-                slug,
-                difficulty: normalizeDifficulty(record.Difficulty),
-                acceptance: record["Acceptance %"],
-                frequency: freq,
-                rawScore: freq,
-                link: record.URL,
-                companies: new Set([company]),
-                timeframes: { [company]: timeframe },
-                topics: topicMap.get(slug) || [],
-              });
-            } else {
-              const q = questionsMap.get(slug)!;
-              q.companies.add(company);
-              q.rawScore += freq; // Cumulative score
-              q.frequency = Math.max(q.frequency, freq);
-              if (!q.timeframes[company] || freq > (parseFloat(q.timeframes[company]) || 0)) {
-                q.timeframes[company] = timeframe;
-              }
-            }
+        if (!questionsMap.has(slug)) {
+          questionsMap.set(slug, {
+            id: record.ID,
+            title: record.Title,
+            slug,
+            difficulty: normalizeDifficulty(record.Difficulty),
+            acceptance: record["Acceptance %"],
+            frequency: freq,
+            rawScore: freq,
+            link: record.URL,
+            companies: new Set([company]),
+            timeframes: { [company]: timeframe },
+            topics: topicMap.get(slug) || [],
+          });
+        } else {
+          const q = questionsMap.get(slug)!;
+          q.companies.add(company);
+          q.rawScore += freq; // Cumulative score
+          q.frequency = Math.max(q.frequency, freq);
+          if (!q.timeframes[company] || freq > (parseFloat(q.timeframes[company]) || 0)) {
+            q.timeframes[company] = timeframe;
           }
         }
       }
-    } else {
-      console.warn("⚠️ No local company data directory found (checked both app and root). Skipping Phase 1.");
     }
-  } catch (e: any) {
-    console.warn(`⚠️ Error during Phase 1 (Local Data Ingestion): ${e.message}`);
   }
 
   // --- Phase 2: External Data Ingestion (Question Bank Expansion) ---
