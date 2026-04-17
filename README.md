@@ -6,7 +6,7 @@
 
 ### 🔗 [Access Companywise Questions Here](./companies_questions)
 
-![CodePractice Dashboard](/public/images/favicon.ico)
+![CodePractice Dashboard](codepractice/public/images/dashboard.png)
 
 ## 📁 Repository Structure
 
